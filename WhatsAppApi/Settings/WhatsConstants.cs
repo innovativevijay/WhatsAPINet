@@ -54,11 +54,6 @@ namespace WhatsAppApi.Settings
         /// </summary>
         public const string Device = "Android";
 
-        /// <summary>
-        /// The useragent used for http requests
-        /// </summary>
-        public const string UserAgent = "WhatsApp/2.11.426 Android/4.0.4 Device/GalaxyS3";
-
         #endregion
 
         #region ParserConstants

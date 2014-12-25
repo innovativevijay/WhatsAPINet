@@ -54,6 +54,8 @@ namespace WhatsAppApi
 
         protected BinTreeNodeWriter BinWriter;
 
+        public Register.WhatsRegisterV2 Registration;
+
         protected void _constructBase(string phoneNum, string imei, string nick, bool debug, bool hidden)
         {
             this.messageQueue = new List<ProtocolTreeNode>();
@@ -66,6 +68,7 @@ namespace WhatsAppApi
             this.loginStatus = CONNECTION_STATUS.DISCONNECTED;
             this.BinWriter = new BinTreeNodeWriter();
             this.whatsNetwork = new WhatsNetwork(WhatsConstants.WhatsAppHost, WhatsConstants.WhatsPort, this.timeout);
+            this.Registration = new Register.WhatsRegisterV2();
         }
 
         public void Connect()

@@ -111,7 +111,7 @@ namespace WhatsAppApi
                 b.AddRange(WhatsApp.SYSEncoding.GetBytes(this.phoneNumber));
                 b.AddRange(this._challengeBytes);
                 b.AddRange(WhatsApp.SYSEncoding.GetBytes(Helper.Func.GetNowUnixTimestamp().ToString()));
-                b.AddRange(WhatsApp.SYSEncoding.GetBytes(WhatsConstants.UserAgent));
+                b.AddRange(WhatsApp.SYSEncoding.GetBytes(this.Registration.GetUserAgent()));
                 b.AddRange(WhatsApp.SYSEncoding.GetBytes(String.Format(" MccMnc/{0}001", pn.MCC)));
                 data = b.ToArray();
 

@@ -11,31 +11,42 @@ using WhatsAppApi.Settings;
 
 namespace WhatsAppApi.Register
 {
-    public static class WhatsRegisterV2
+    public class WhatsRegisterV2
     {
-        public static string GenerateIdentity(string phoneNumber, string salt = "")
+        private WaBuildHashData hashData;
+        public WhatsRegisterV2()
+        {
+            this.hashData = new WaBuildHashData();
+        }
+
+        public string GetUserAgent()
+        {
+            return this.hashData.UserAgent;
+        }
+
+        public string GenerateIdentity(string phoneNumber, string salt = "")
         {
             return (phoneNumber + salt).Reverse().ToSHAString();
         }
 
-        public static string GetToken(string number)
+        public string GetToken(string number, string buildHash)
         {
-            return WaToken.GenerateToken(number);
+            return WaToken.GenerateToken(number, buildHash);
         }
 
-        public static bool RequestCode(string phoneNumber, out string password, string method = "sms", string id = null)
+        public bool RequestCode(string phoneNumber, out string password, string method = "sms", string id = null)
         {
             string response = string.Empty;
             return RequestCode(phoneNumber, out password, out response, method, id);
         }
 
-        public static bool RequestCode(string phoneNumber, out string password, out string response, string method = "sms", string id = null)
+        public bool RequestCode(string phoneNumber, out string password, out string response, string method = "sms", string id = null)
         {
             string request = string.Empty;
             return RequestCode(phoneNumber, out password, out request, out response, method, id);
         }
 
-        public static bool RequestCode(string phoneNumber, out string password, out string request, out string response, string method = "sms", string id = null)
+        public bool RequestCode(string phoneNumber, out string password, out string request, out string response, string method = "sms", string id = null)
         {
             response = null;
             password = null;
@@ -47,11 +58,12 @@ namespace WhatsAppApi.Register
                     //auto-generate
                     id = GenerateIdentity(phoneNumber);
                 }
+
                 PhoneNumber pn = new PhoneNumber(phoneNumber);
-                string token = System.Uri.EscapeDataString(WhatsRegisterV2.GetToken(pn.Number));
+                string token = System.Uri.EscapeDataString(this.GetToken(pn.Number, this.hashData.Token));
                 
                 request = string.Format("https://v.whatsapp.net/v2/code?cc={0}&in={1}&to={0}{1}&method={2}&sim_mcc={3}&sim_mnc={4}&token={5}&id={6}&lg={7}&lc={8}", pn.CC, pn.Number, method, pn.MCC, pn.MNC, token, id, pn.ISO639, pn.ISO3166);
-                response = GetResponse(request);
+                response = GetResponse(request, hashData.UserAgent);
                 password = response.GetJsonValue("pw");
                 if (!string.IsNullOrEmpty(password))
                 {
@@ -66,13 +78,13 @@ namespace WhatsAppApi.Register
             }
         }
 
-        public static string RegisterCode(string phoneNumber, string code, string id = null)
+        public string RegisterCode(string phoneNumber, string code, string id = null)
         {
             string response = string.Empty;
-            return WhatsRegisterV2.RegisterCode(phoneNumber, code, out response, id);
+            return this.RegisterCode(phoneNumber, code, out response, id);
         }
 
-        public static string RegisterCode(string phoneNumber, string code, out string response, string id = null)
+        public string RegisterCode(string phoneNumber, string code, out string response, string id = null)
         {
             response = string.Empty;
             try
@@ -80,12 +92,12 @@ namespace WhatsAppApi.Register
                 if (string.IsNullOrEmpty(id))
                 {
                     //auto generate
-                    id = GenerateIdentity(phoneNumber);
+                    id = this.GenerateIdentity(phoneNumber);
                 }
                 PhoneNumber pn = new PhoneNumber(phoneNumber);
 
                 string uri = string.Format("https://v.whatsapp.net/v2/register?cc={0}&in={1}&id={2}&code={3}", pn.CC, pn.Number, id, code);
-                response = GetResponse(uri);
+                response = this.GetResponse(uri, this.hashData.UserAgent);
                 if (response.GetJsonValue("status") == "ok")
                 {
                     return response.GetJsonValue("pw");
@@ -98,13 +110,13 @@ namespace WhatsAppApi.Register
             }
         }
 
-        public static string RequestExist(string phoneNumber, string id = null)
+        public string RequestExist(string phoneNumber, string id = null)
         {
             string response = string.Empty;
             return RequestExist(phoneNumber, out response, id);
         }
 
-        public static string RequestExist(string phoneNumber, out string response, string id = null)
+        public string RequestExist(string phoneNumber, out string response, string id = null)
         {
             response = string.Empty;
             try
@@ -114,9 +126,9 @@ namespace WhatsAppApi.Register
                     id = GenerateIdentity(phoneNumber);
                 }
                 PhoneNumber pn = new PhoneNumber(phoneNumber);
-
+                WaBuildHashData hashData = new WaBuildHashData();
                 string uri = string.Format("https://v.whatsapp.net/v2/exist?cc={0}&in={1}&id={2}", pn.CC, pn.Number, id);
-                response = GetResponse(uri);
+                response = GetResponse(uri,hashData.UserAgent);
                 if (response.GetJsonValue("status") == "ok")
                 {
                     return response.GetJsonValue("pw");
@@ -129,21 +141,16 @@ namespace WhatsAppApi.Register
             }
         }
 
-        private static string GetResponse(string uri)
+        private string GetResponse(string uri, string userAgent)
         {
             HttpWebRequest request = HttpWebRequest.Create(new Uri(uri)) as HttpWebRequest;
             request.KeepAlive = false;
-            request.UserAgent = WhatsConstants.UserAgent;
+            request.UserAgent = userAgent;
             request.Accept = "text/json";
             using (var reader = new System.IO.StreamReader(request.GetResponse().GetResponseStream()))
             {
                 return reader.ReadLine();
             }
-        }
-
-        private static string ToSHAString(this IEnumerable<char> s)
-        {
-            return new string(s.ToArray()).ToSHAString();
         }
 
         public static string UrlEncode(string data)
@@ -178,8 +185,8 @@ namespace WhatsAppApi.Register
                 )
                 {
                     //encode 
-                    sb.Append('%'); 
-                    sb.AppendFormat("{0:x2}", (byte)c); 
+                    sb.Append('%');
+                    sb.AppendFormat("{0:x2}", (byte)c);
                 }
                 else
                 {
@@ -191,7 +198,62 @@ namespace WhatsAppApi.Register
             return sb.ToString();
         }
 
-        private static string ToSHAString(this string s)
+        class WaBuildHashData
+        {
+            protected string userAgent;
+            protected string token;
+            const string DATA_URL = "https://github.com/shirioko/WhatsAPI/raw/master/src/build.hash";
+
+            public string UserAgent
+            {
+                get
+                {
+                    return this.userAgent;
+                }
+            }
+
+            public string Token
+            {
+                get
+                {
+                    return this.token;
+                }
+            }
+
+            public WaBuildHashData()
+            {
+                string data = string.Empty;
+                try
+                {
+                    using (WebClient wc = new WebClient())
+                    {
+                        data = wc.DownloadString(DATA_URL);
+                    }
+                    data = Encoding.UTF8.GetString(Convert.FromBase64String(data));
+                    string[] parts = data.Split(new char[] { ';' });
+                    if (parts.Length == 2)
+                    {
+                        this.userAgent = parts[0];
+                        this.token = parts[1];
+                        return;
+                    }
+                }
+                catch (Exception e)
+                {
+                    throw e;
+                }
+            }
+        }
+    }
+
+    public static class WaExtenders
+    {
+        public static string ToSHAString(this IEnumerable<char> s)
+        {
+            return new string(s.ToArray()).ToSHAString();
+        }
+
+        public static string ToSHAString(this String s)
         {
             byte[] data = SHA1.Create().ComputeHash(Encoding.UTF8.GetBytes(s));
             string str = Encoding.GetEncoding("iso-8859-1").GetString(data);
@@ -199,18 +261,18 @@ namespace WhatsAppApi.Register
             return str;
         }
 
-        private static string ToMD5String(this IEnumerable<char> s)
+        public static string ToMD5String(this IEnumerable<char> s)
         {
             return new string(s.ToArray()).ToMD5String();
         }
- 
-        private static string ToMD5String(this string s)
+
+        public static string ToMD5String(this String s)
         {
             return string.Join(string.Empty, MD5.Create().ComputeHash(Encoding.UTF8.GetBytes(s)).Select(item => item.ToString("x2")).ToArray());
         }
 
 
-        private static void GetLanguageAndLocale(this CultureInfo self, out string language, out string locale)
+        public static void GetLanguageAndLocale(this CultureInfo self, out string language, out string locale)
         {
             string name = self.Name;
             int n1 = name.IndexOf('-');
@@ -257,7 +319,7 @@ namespace WhatsAppApi.Register
             }
         }
 
-        private static string GetJsonValue(this string s, string parameter)
+        public static string GetJsonValue(this String s, string parameter)
         {
             Match match;
             if ((match = Regex.Match(s, string.Format("\"?{0}\"?:\"(?<Value>.+?)\"", parameter), RegexOptions.Singleline | RegexOptions.IgnoreCase)).Success)
