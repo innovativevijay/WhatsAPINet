@@ -29,9 +29,9 @@ namespace WhatsAppApi.Register
             return (phoneNumber + salt).Reverse().ToSHAString();
         }
 
-        public string GetToken(string number, string buildHash)
+        public string GetToken(string number)
         {
-            return WaToken.GenerateToken(number, buildHash);
+            return WaToken.GenerateToken(number, this.hashData.Token);
         }
 
         public bool RequestCode(string phoneNumber, out string password, string method = "sms", string id = null)
@@ -60,7 +60,7 @@ namespace WhatsAppApi.Register
                 }
 
                 PhoneNumber pn = new PhoneNumber(phoneNumber);
-                string token = System.Uri.EscapeDataString(this.GetToken(pn.Number, this.hashData.Token));
+                string token = System.Uri.EscapeDataString(this.GetToken(pn.Number));
                 
                 request = string.Format("https://v.whatsapp.net/v2/code?cc={0}&in={1}&to={0}{1}&method={2}&sim_mcc={3}&sim_mnc={4}&token={5}&id={6}&lg={7}&lc={8}", pn.CC, pn.Number, method, pn.MCC, pn.MNC, token, id, pn.ISO639, pn.ISO3166);
                 response = GetResponse(request, hashData.UserAgent);
