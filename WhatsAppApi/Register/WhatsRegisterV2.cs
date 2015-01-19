@@ -13,15 +13,9 @@ namespace WhatsAppApi.Register
 {
     public class WhatsRegisterV2
     {
-        private WaBuildHashData hashData;
-        public WhatsRegisterV2()
-        {
-            this.hashData = new WaBuildHashData();
-        }
-
         public string GetUserAgent()
         {
-            return this.hashData.UserAgent;
+            return WaBuildHashData.UserAgent;
         }
 
         public string GenerateIdentity(string phoneNumber, string salt = "")
@@ -31,7 +25,7 @@ namespace WhatsAppApi.Register
 
         public string GetToken(string number)
         {
-            return WaToken.GenerateToken(number, this.hashData.Token);
+            return WaToken.GenerateToken(number, WaBuildHashData.Token);
         }
 
         public bool RequestCode(string phoneNumber, out string password, string method = "sms", string id = null)
@@ -60,10 +54,10 @@ namespace WhatsAppApi.Register
                 }
 
                 PhoneNumber pn = new PhoneNumber(phoneNumber);
-                string token = System.Uri.EscapeDataString(this.GetToken(pn.Number));
+                string token = this.GetToken(pn.Number);
                 
                 request = string.Format("https://v.whatsapp.net/v2/code?cc={0}&in={1}&to={0}{1}&method={2}&sim_mcc={3}&sim_mnc={4}&token={5}&id={6}&lg={7}&lc={8}", pn.CC, pn.Number, method, pn.MCC, pn.MNC, token, id, pn.ISO639, pn.ISO3166);
-                response = GetResponse(request, hashData.UserAgent);
+                response = GetResponse(request);
                 password = response.GetJsonValue("pw");
                 if (!string.IsNullOrEmpty(password))
                 {
@@ -97,7 +91,7 @@ namespace WhatsAppApi.Register
                 PhoneNumber pn = new PhoneNumber(phoneNumber);
 
                 string uri = string.Format("https://v.whatsapp.net/v2/register?cc={0}&in={1}&id={2}&code={3}", pn.CC, pn.Number, id, code);
-                response = this.GetResponse(uri, this.hashData.UserAgent);
+                response = this.GetResponse(uri);
                 if (response.GetJsonValue("status") == "ok")
                 {
                     return response.GetJsonValue("pw");
@@ -126,9 +120,8 @@ namespace WhatsAppApi.Register
                     id = GenerateIdentity(phoneNumber);
                 }
                 PhoneNumber pn = new PhoneNumber(phoneNumber);
-                WaBuildHashData hashData = new WaBuildHashData();
                 string uri = string.Format("https://v.whatsapp.net/v2/exist?cc={0}&in={1}&id={2}", pn.CC, pn.Number, id);
-                response = GetResponse(uri,hashData.UserAgent);
+                response = GetResponse(uri);
                 if (response.GetJsonValue("status") == "ok")
                 {
                     return response.GetJsonValue("pw");
@@ -141,11 +134,11 @@ namespace WhatsAppApi.Register
             }
         }
 
-        private string GetResponse(string uri, string userAgent)
+        private string GetResponse(string uri)
         {
             HttpWebRequest request = HttpWebRequest.Create(new Uri(uri)) as HttpWebRequest;
             request.KeepAlive = false;
-            request.UserAgent = userAgent;
+            request.UserAgent = this.GetUserAgent();
             request.Accept = "text/json";
             using (var reader = new System.IO.StreamReader(request.GetResponse().GetResponseStream()))
             {
@@ -198,51 +191,10 @@ namespace WhatsAppApi.Register
             return sb.ToString();
         }
 
-        class WaBuildHashData
+        public static class WaBuildHashData
         {
-            protected string userAgent;
-            protected string token;
-            const string DATA_URL = "https://github.com/shirioko/WhatsAPI/raw/master/src/build.hash";
-
-            public string UserAgent
-            {
-                get
-                {
-                    return this.userAgent;
-                }
-            }
-
-            public string Token
-            {
-                get
-                {
-                    return this.token;
-                }
-            }
-
-            public WaBuildHashData()
-            {
-                string data = string.Empty;
-                try
-                {
-                    using (WebClient wc = new WebClient())
-                    {
-                        data = wc.DownloadString(DATA_URL);
-                    }
-                    data = Encoding.UTF8.GetString(Convert.FromBase64String(data));
-                    string[] parts = data.Split(new char[] { ';' });
-                    if (parts.Length == 2)
-                    {
-                        this.userAgent = parts[0];
-                        this.token = parts[1];
-                        return;
-                    }
-                }
-                catch (Exception e)
-                {
-                    throw e;
-                }
-            }
+            public const string UserAgent = "WhatsApp/2.12.60 S40Version/14.26 Device/Nokia302";
+            public const string Token = "PdA2DJyKoUrwLw1Bg6EIhzh502dF9noR9uFCllGk1418865329241{0}";
         }
     }
 
